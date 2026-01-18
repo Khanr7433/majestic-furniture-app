@@ -1,12 +1,19 @@
 import { Slot } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Colors } from "../constants/Colors";
 
 export default function RootLayout() {
+  const backgroundColor = Colors.dark.background;
+
   return (
-    <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor }}>
       <Slot />
-      <StatusBar style="auto" />
-    </View>
+      <StatusBar
+        style="light"
+        backgroundColor="transparent"
+        translucent={true}
+      />
+    </SafeAreaView>
   );
 }
