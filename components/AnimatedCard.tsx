@@ -1,14 +1,14 @@
 import { Colors } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
 import * as Haptics from "expo-haptics";
-import { MotiView } from "moti";
 import React from "react";
 import {
-    GestureResponderEvent,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    ViewStyle
+  GestureResponderEvent,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ViewStyle,
 } from "react-native";
 
 interface AnimatedCardProps {
@@ -16,7 +16,6 @@ interface AnimatedCardProps {
   subtitle?: string;
   onPress?: (event: GestureResponderEvent) => void;
   style?: ViewStyle;
-  delay?: number;
 }
 
 export function AnimatedCard({
@@ -24,7 +23,6 @@ export function AnimatedCard({
   subtitle,
   onPress,
   style,
-  delay = 0,
 }: AnimatedCardProps) {
   const colorScheme = "dark";
   const theme = Colors[colorScheme];
@@ -35,13 +33,13 @@ export function AnimatedCard({
   };
 
   return (
-    <MotiView
-      from={{ opacity: 0, translateY: 20 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: "timing", duration: 500, delay }}
+    <View
       style={[
         styles.container,
-        { backgroundColor: theme.card, shadowColor: theme.secondary },
+        {
+          backgroundColor: theme.card,
+          shadowColor: theme.secondary,
+        },
         style,
       ]}
     >
@@ -57,7 +55,7 @@ export function AnimatedCard({
           </Text>
         )}
       </TouchableOpacity>
-    </MotiView>
+    </View>
   );
 }
 

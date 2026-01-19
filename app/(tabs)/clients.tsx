@@ -1,5 +1,6 @@
 import { AnimatedCard } from "@/components/AnimatedCard";
 import { GlassView } from "@/components/GlassView";
+import { SwipeableRow } from "@/components/SwipeableRow";
 import { Colors } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
 import { supabase } from "@/lib/supabase";
@@ -7,6 +8,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
+    ActivityIndicator,
+    Alert,
     FlatList,
     Modal,
     StyleSheet,
@@ -22,7 +25,6 @@ interface Client {
   name: string;
   phone: string;
   address: string;
-  notes: string;
 }
 
 export default function ClientsScreen() {
@@ -31,6 +33,11 @@ export default function ClientsScreen() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+
+  // Track the currently open swipeable row
+  const openRowRef = React.useRef<{ close: () => void } | null>(null);
+  const rowRefs = React.useRef<Map<string, { close: () => void }>>(new Map());
 
   // Form State
   const [name, setName] = useState("");
@@ -60,25 +67,63 @@ export default function ClientsScreen() {
   const addClient = async () => {
     if (!name.trim()) return;
 
-    const newClient = {
+    const clientData = {
       name,
       phone,
       address,
     };
 
     try {
-      const { error } = await supabase.from("clients").insert([newClient]);
-      if (error) throw error;
+      if (editingClient) {
+        // Update existing client
+        const { error } = await supabase
+          .from("clients")
+          .update(clientData)
+          .eq("id", editingClient.id);
+        if (error) throw error;
+      } else {
+        // Insert new client
+        const { error } = await supabase.from("clients").insert([clientData]);
+        if (error) throw error;
+      }
 
       setModalVisible(false);
+      setEditingClient(null);
       setName("");
       setPhone("");
       setAddress("");
-      fetchClients(); // Refresh list
+      fetchClients();
     } catch (error) {
-      console.error("Error adding client:", error);
-      alert("Failed to add client");
+      console.error("Error saving client:", error);
+      alert("Failed to save client");
     }
+  };
+
+  const editClient = (client: Client) => {
+    setEditingClient(client);
+    setName(client.name);
+    setPhone(client.phone || "");
+    setAddress(client.address || "");
+    setModalVisible(true);
+  };
+
+  const deleteClient = async (id: string) => {
+    try {
+      const { error } = await supabase.from("clients").delete().eq("id", id);
+      if (error) throw error;
+      fetchClients();
+    } catch (error) {
+      console.error("Error deleting client:", error);
+      alert("Failed to delete client");
+    }
+  };
+
+  const handleAddNew = () => {
+    setEditingClient(null);
+    setName("");
+    setPhone("");
+    setAddress("");
+    setModalVisible(true);
   };
 
   return (
@@ -95,35 +140,84 @@ export default function ClientsScreen() {
         </Text>
       </LinearGradient>
 
-      <FlatList
-        data={clients}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item, index }) => (
-          <AnimatedCard
-            title={item.name}
-            subtitle={`${item.phone || "No phone"} • ${item.address || "No address"}`}
-            delay={index * 100}
-            style={styles.card}
-            onPress={() => {}}
-          />
-        )}
-        ListEmptyComponent={
-          !loading ? (
-            <Text
-              style={{ color: theme.icon, textAlign: "center", marginTop: 40 }}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.tint} />
+          <Text style={[styles.loadingText, { color: theme.text }]}>
+            Loading clients...
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={clients}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item, index }) => (
+            <SwipeableRow
+              ref={(ref) => {
+                if (ref) {
+                  rowRefs.current.set(item.id, ref);
+                } else {
+                  rowRefs.current.delete(item.id);
+                }
+              }}
+              onOpen={() => {
+                // Close the previously open row if it's different
+                if (
+                  openRowRef.current &&
+                  openRowRef.current !== rowRefs.current.get(item.id)
+                ) {
+                  openRowRef.current.close();
+                }
+                // Register this row as the open one
+                openRowRef.current = rowRefs.current.get(item.id) || null;
+              }}
+              onEdit={() => editClient(item)}
+              onDelete={() => {
+                Alert.alert(
+                  "Delete Client",
+                  `Are you sure you want to delete ${item.name}?`,
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: () => deleteClient(item.id),
+                    },
+                  ],
+                );
+              }}
+              delay={index * 100}
             >
-              No clients found. Add one!
-            </Text>
-          ) : null
-        }
-      />
+              <AnimatedCard
+                title={item.name}
+                subtitle={`${item.phone || "No phone"} • ${item.address || "No address"}`}
+                style={styles.card}
+                onPress={() => {}}
+              />
+            </SwipeableRow>
+          )}
+          ListEmptyComponent={
+            !loading ? (
+              <Text
+                style={{
+                  color: theme.icon,
+                  textAlign: "center",
+                  marginTop: 40,
+                }}
+              >
+                No clients found. Add one!
+              </Text>
+            ) : null
+          }
+        />
+      )}
 
       {/* FAB to Add Client */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: theme.tint }]}
-        onPress={() => setModalVisible(true)}
+        onPress={handleAddNew}
       >
         <Ionicons name="add" size={30} color="#fff" />
       </TouchableOpacity>
@@ -138,7 +232,7 @@ export default function ClientsScreen() {
         <View style={styles.modalOverlay}>
           <GlassView intensity={90} style={styles.modalContent}>
             <Text style={[styles.modalTitle, { color: theme.text }]}>
-              New Client
+              {editingClient ? "Edit Client" : "New Client"}
             </Text>
 
             <TextInput
@@ -213,10 +307,10 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
-    paddingBottom: 100, // Space for FAB
+    paddingBottom: 100,
   },
   card: {
-    marginBottom: 12,
+    marginBottom: 0,
   },
   fab: {
     position: "absolute",
@@ -276,5 +370,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: Typography.size.m,
   },
 });
