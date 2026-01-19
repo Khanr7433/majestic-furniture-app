@@ -61,6 +61,7 @@ export default function BillingScreen() {
         data={MOCK_BILLS}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
         renderItem={({ item, index }) => (
           <AnimatedCard
             title={item.client}

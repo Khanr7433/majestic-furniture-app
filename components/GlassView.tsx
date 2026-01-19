@@ -14,14 +14,10 @@ export function GlassView({
 }: GlassViewProps) {
   const colorScheme = "dark";
 
-  // Adaptive tint based on theme if 'default' is passed
   const adaptiveTint =
     tint === "default" ? (colorScheme === "dark" ? "dark" : "light") : tint;
 
   if (Platform.OS === "android") {
-    // Android sometimes struggles with heavy blurs in listed items,
-    // but Expo Blur works reasonably well.
-    // Adding a fallback background color for safety/readability using alpha.
     return (
       <View
         style={[
